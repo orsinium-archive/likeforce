@@ -2,8 +2,6 @@ package likeforce
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/francoispqt/onelog"
 
@@ -31,13 +29,7 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
 	msg.ReplyToMessageID = update.Message.MessageID
-	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				tg.messages.Like,
-				fmt.Sprintf("%d:%d", update.Message.Chat.ID, update.Message.MessageID)),
-		),
-	)
+	msg.ReplyMarkup = tg.makeButton(update.Message.Chat.ID, update.Message.MessageID, 0)
 	_, err = tg.bot.Send(msg)
 	if err != nil {
 		tg.logger.ErrorWith("cannot send message").Err("error", err).Write()
@@ -50,18 +42,19 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	msg := update.CallbackQuery
 	tg.logger.InfoWith("new button request").String("from", msg.From.String()).Write()
 
-	// parse chat and post IDs
-	parts := strings.SplitN(msg.Data, ":", 2)
-	chatID, err := strconv.ParseInt(parts[0], 10, 64)
+	// parse IDs
+	userID := msg.From.ID
+	chatID, err := ExtractChatId(update)
 	if err != nil {
 		tg.logger.ErrorWith("cannot extract chat id").Err("error", err).Write()
 		return
 	}
-	postID, err := strconv.Atoi(parts[1])
+	postID, err := ExtractPostId(update)
 	if err != nil {
 		tg.logger.ErrorWith("cannot extract post id").Err("error", err).Write()
 		return
 	}
+	tg.logger.DebugWith("ids").Int64("chat", chatID).Int("post", postID).Int("user", userID).Write()
 
 	// check post existence
 	postExists, err := tg.posts.Has(chatID, postID)
@@ -81,19 +74,43 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	}
 
 	// dislike post if laready liked, like otherwise
-	liked, err := tg.likes.Has(chatID, postID, msg.From.ID)
+	liked, err := tg.likes.Has(chatID, postID, userID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot check like existence").Err("error", err).Write()
 		return
 	}
-	var responseText string
 	if liked {
-		responseText = tg.removeLike(chatID, postID, msg)
+		err = tg.likes.Remove(chatID, postID, userID)
 	} else {
-		responseText = tg.addLike(chatID, postID, msg)
+		err = tg.likes.Add(chatID, postID, userID)
+	}
+	if err != nil {
+		tg.logger.ErrorWith("cannot process like").Err("error", err).Write()
+		return
+	}
+
+	// update counter on button
+	buttonID, err := ExtractButtonID(update)
+	if err != nil {
+		tg.logger.ErrorWith("cannot get button ID").Err("error", err).Write()
+		return
+	}
+	likesCount, err := tg.likes.Count(chatID, postID)
+	_, err = tg.bot.Send(
+		tgbotapi.NewEditMessageReplyMarkup(chatID, buttonID, tg.makeButton(chatID, buttonID, likesCount)),
+	)
+	if err != nil {
+		tg.logger.ErrorWith("cannot update button").Err("error", err).Write()
+		return
 	}
 
 	// send response
+	var responseText string
+	if liked {
+		responseText = tg.messages.Disliked
+	} else {
+		responseText = tg.messages.Liked
+	}
 	_, err = tg.bot.AnswerCallbackQuery(
 		tgbotapi.NewCallback(msg.ID, responseText),
 	)
@@ -104,22 +121,18 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	tg.logger.InfoWith("button response sent").String("to", msg.From.String()).Write()
 }
 
-func (tg *Telegram) addLike(chatID int64, postID int, msg *tgbotapi.CallbackQuery) string {
-	err := tg.likes.Add(chatID, postID, msg.From.ID)
-	if err != nil {
-		tg.logger.ErrorWith("cannot add like").Err("error", err).Write()
-		return tg.messages.Error
+func (tg *Telegram) makeButton(chatID int64, postID int, likesCount int) tgbotapi.InlineKeyboardMarkup {
+	var text string
+	if likesCount == 0 {
+		text = tg.messages.Like
+	} else {
+		text = fmt.Sprintf("%s - %d", tg.messages.Like, likesCount)
 	}
-	return tg.messages.Liked
-}
-
-func (tg *Telegram) removeLike(chatID int64, postID int, msg *tgbotapi.CallbackQuery) string {
-	err := tg.likes.Remove(chatID, postID, msg.From.ID)
-	if err != nil {
-		tg.logger.ErrorWith("cannot remove like").Err("error", err).Write()
-		return tg.messages.Error
-	}
-	return tg.messages.Disliked
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(text, fmt.Sprintf("%d:%d", chatID, postID)),
+		),
+	)
 }
 
 // Serve forever to process all incoming messages
