@@ -11,12 +11,12 @@ type Posts struct {
 	client *redis.Client
 }
 
-func makeKeyChat(chat int) string {
+func makeKeyChat(chat int64) string {
 	return fmt.Sprintf("likes:posts:%d", chat)
 }
 
 // Add to save a new post for given chat
-func (storage *Posts) Add(chat, post int) (err error) {
+func (storage *Posts) Add(chat int64, post int) (err error) {
 	return storage.client.SAdd(
 		makeKeyChat(chat),
 		post,
@@ -24,7 +24,7 @@ func (storage *Posts) Add(chat, post int) (err error) {
 }
 
 // Has returns true if post is already added in channel
-func (storage *Posts) Has(chat, post int) (bool, error) {
+func (storage *Posts) Has(chat int64, post int) (bool, error) {
 	return storage.client.SIsMember(
 		makeKeyChat(chat),
 		post,

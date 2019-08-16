@@ -11,20 +11,20 @@ type Likes struct {
 	client *redis.Client
 }
 
-func makeKeyPost(chat, post, user int) string {
+func makeKeyPost(chat int64, post, user int) string {
 	return fmt.Sprintf("likes:post:%d:%d", chat, post)
 }
 
-func makeKeyUser(chat, post, user int) string {
+func makeKeyUser(chat int64, post, user int) string {
 	return fmt.Sprintf("likes:user:%d", user)
 }
 
-func makeValuePost(chat, post, user int) string {
+func makeValuePost(chat int64, post, user int) string {
 	return fmt.Sprintf("%d:%d", chat, post)
 }
 
 // Add to save a new like for given post
-func (storage *Likes) Add(chat, post, user int) (err error) {
+func (storage *Likes) Add(chat int64, post, user int) (err error) {
 	err = storage.client.SAdd(
 		makeKeyUser(chat, post, user),
 		makeValuePost(chat, post, user),
@@ -40,7 +40,7 @@ func (storage *Likes) Add(chat, post, user int) (err error) {
 }
 
 // Remove to dislike given post
-func (storage *Likes) Remove(chat, post, user int) (err error) {
+func (storage *Likes) Remove(chat int64, post, user int) (err error) {
 	err = storage.client.SRem(
 		makeKeyUser(chat, post, user),
 		makeValuePost(chat, post, user),
@@ -56,7 +56,7 @@ func (storage *Likes) Remove(chat, post, user int) (err error) {
 }
 
 // Has returns true if post is already liked by user
-func (storage *Likes) Has(chat, post, user int) (bool, error) {
+func (storage *Likes) Has(chat int64, post, user int) (bool, error) {
 	return storage.client.SIsMember(
 		makeKeyUser(chat, post, user),
 		makeValuePost(chat, post, user),
@@ -64,7 +64,7 @@ func (storage *Likes) Has(chat, post, user int) (bool, error) {
 }
 
 // Count returns count of likes for a given post
-func (storage *Likes) Count(chat, post int) (int, error) {
+func (storage *Likes) Count(chat int64, post int) (int, error) {
 	return storage.client.Get(makeKeyPost(chat, post, 0)).Int()
 }
 

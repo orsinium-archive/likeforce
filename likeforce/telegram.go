@@ -2,7 +2,8 @@ package likeforce
 
 import (
 	"fmt"
-	"log"
+
+	"github.com/francoispqt/onelog"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -14,10 +15,17 @@ type Telegram struct {
 	bot      *tgbotapi.BotAPI
 	timeout  int
 	messages MessagesConfig
+	logger   *onelog.Logger
 }
 
 func (tg *Telegram) processMessage(update tgbotapi.Update) {
-	log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+	tg.logger.InfoWith("new message").String("from", update.Message.From.String()).Write()
+
+	err := tg.posts.Add(update.Message.Chat.ID, update.Message.MessageID)
+	if err != nil {
+		tg.logger.ErrorWith("cannot add post").Err("error", err).Write()
+		return
+	}
 
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
 	msg.ReplyToMessageID = update.Message.MessageID
@@ -26,14 +34,25 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 			tgbotapi.NewInlineKeyboardButtonData(tg.messages.Like, fmt.Sprintf("%d", update.Message.MessageID)),
 		),
 	)
-	tg.bot.Send(msg)
+	_, err = tg.bot.Send(msg)
+	if err != nil {
+		tg.logger.ErrorWith("cannot send message").Err("error", err).Write()
+		return
+	}
+	tg.logger.InfoWith("message sent").String("to", update.Message.From.String()).Write()
 }
 
 func (tg *Telegram) processButton(update tgbotapi.Update) {
-	fmt.Println(update.CallbackQuery.From.UserName)
-	fmt.Println(update.CallbackQuery.Data)
+	tg.logger.InfoWith("new button request").String("from", update.CallbackQuery.From.String()).Write()
 
-	tg.bot.AnswerCallbackQuery(tgbotapi.NewCallback(update.CallbackQuery.ID, tg.messages.Liked))
+	_, err := tg.bot.AnswerCallbackQuery(
+		tgbotapi.NewCallback(update.CallbackQuery.ID, tg.messages.Liked),
+	)
+	if err != nil {
+		tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
+		return
+	}
+	tg.logger.InfoWith("button response sent").String("to", update.CallbackQuery.From.String()).Write()
 }
 
 // Serve forever to process all incoming messages
@@ -60,7 +79,7 @@ func (tg *Telegram) Serve() error {
 }
 
 // NewTelegram creates Telegram instance
-func NewTelegram(config Config, likes Likes, posts Posts) (Telegram, error) {
+func NewTelegram(config Config, likes Likes, posts Posts, logger *onelog.Logger) (Telegram, error) {
 	bot, err := tgbotapi.NewBotAPI(config.Telegram.Token)
 	if err != nil {
 		return Telegram{}, err
@@ -72,6 +91,7 @@ func NewTelegram(config Config, likes Likes, posts Posts) (Telegram, error) {
 		bot:      bot,
 		timeout:  config.Telegram.Timeout,
 		messages: config.Messages,
+		logger:   logger,
 	}
 	return tg, nil
 }
