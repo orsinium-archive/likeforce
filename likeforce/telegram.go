@@ -12,6 +12,7 @@ import (
 type Telegram struct {
 	likes    Likes
 	posts    Posts
+	users    Users
 	bot      *tgbotapi.BotAPI
 	timeout  int
 	messages MessagesConfig
@@ -20,16 +21,31 @@ type Telegram struct {
 
 func (tg *Telegram) processMessage(update tgbotapi.Update) {
 	tg.logger.InfoWith("new message").String("from", update.Message.From.String()).Write()
+	chatID := update.Message.Chat.ID
+	postID := update.Message.MessageID
+	userID := update.Message.From.ID
 
-	err := tg.posts.Add(update.Message.Chat.ID, update.Message.MessageID)
+	err := tg.posts.Add(chatID, postID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot add post").Err("error", err).Write()
 		return
 	}
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-	msg.ReplyToMessageID = update.Message.MessageID
-	msg.ReplyMarkup = tg.makeButton(update.Message.Chat.ID, update.Message.MessageID, 0)
+	stat, err := tg.users.Stat(chatID, userID)
+	if err != nil {
+		tg.logger.ErrorWith("cannot get stat for user").Err("error", err).Write()
+		return
+	}
+
+	err = tg.users.AddPost(chatID, userID)
+	if err != nil {
+		tg.logger.ErrorWith("cannot increment posts for user").Err("error", err).Write()
+		return
+	}
+
+	msg := tgbotapi.NewMessage(chatID, stat)
+	msg.ReplyToMessageID = postID
+	msg.ReplyMarkup = tg.makeButton(chatID, postID, 0)
 	_, err = tg.bot.Send(msg)
 	if err != nil {
 		tg.logger.ErrorWith("cannot send message").Err("error", err).Write()
@@ -81,12 +97,26 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	}
 	if liked {
 		err = tg.likes.Remove(chatID, postID, userID)
+		if err != nil {
+			tg.logger.ErrorWith("cannot remove like").Err("error", err).Write()
+			return
+		}
+		err = tg.users.RemoveRating(chatID, userID)
+		if err != nil {
+			tg.logger.ErrorWith("cannot decrement rating").Err("error", err).Write()
+			return
+		}
 	} else {
 		err = tg.likes.Add(chatID, postID, userID)
-	}
-	if err != nil {
-		tg.logger.ErrorWith("cannot process like").Err("error", err).Write()
-		return
+		if err != nil {
+			tg.logger.ErrorWith("cannot add like").Err("error", err).Write()
+			return
+		}
+		err = tg.users.AddRating(chatID, userID)
+		if err != nil {
+			tg.logger.ErrorWith("cannot increment rating").Err("error", err).Write()
+			return
+		}
 	}
 
 	// update counter on button
@@ -159,7 +189,7 @@ func (tg *Telegram) Serve() error {
 }
 
 // NewTelegram creates Telegram instance
-func NewTelegram(config Config, likes Likes, posts Posts, logger *onelog.Logger) (Telegram, error) {
+func NewTelegram(config Config, likes Likes, posts Posts, users Users, logger *onelog.Logger) (Telegram, error) {
 	bot, err := tgbotapi.NewBotAPI(config.Telegram.Token)
 	if err != nil {
 		return Telegram{}, err
@@ -168,6 +198,7 @@ func NewTelegram(config Config, likes Likes, posts Posts, logger *onelog.Logger)
 	tg := Telegram{
 		likes:    likes,
 		posts:    posts,
+		users:    users,
 		bot:      bot,
 		timeout:  config.Telegram.Timeout,
 		messages: config.Messages,
