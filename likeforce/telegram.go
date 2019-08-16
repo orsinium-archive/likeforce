@@ -9,9 +9,10 @@ import (
 
 // Telegram is a main logic for handling messages
 type Telegram struct {
-	likes   Likes
-	bot     *tgbotapi.BotAPI
-	timeout int
+	likes    Likes
+	bot      *tgbotapi.BotAPI
+	timeout  int
+	messages MessagesConfig
 }
 
 func (tg *Telegram) processMessage(update tgbotapi.Update) {
@@ -21,7 +22,7 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 	msg.ReplyToMessageID = update.Message.MessageID
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("like", fmt.Sprintf("%d", update.Message.MessageID)),
+			tgbotapi.NewInlineKeyboardButtonData(tg.messages.Like, fmt.Sprintf("%d", update.Message.MessageID)),
 		),
 	)
 	tg.bot.Send(msg)
@@ -31,7 +32,7 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	fmt.Println(update.CallbackQuery.From.UserName)
 	fmt.Println(update.CallbackQuery.Data)
 
-	tg.bot.AnswerCallbackQuery(tgbotapi.NewCallback(update.CallbackQuery.ID, "like"))
+	tg.bot.AnswerCallbackQuery(tgbotapi.NewCallback(update.CallbackQuery.ID, tg.messages.Liked))
 }
 
 // Serve forever to process all incoming messages
@@ -58,16 +59,17 @@ func (tg *Telegram) Serve() error {
 }
 
 // NewTelegram creates Telegram instance
-func NewTelegram(config TelegramConfig, likes Likes) (Telegram, error) {
-	bot, err := tgbotapi.NewBotAPI(config.Token)
+func NewTelegram(config Config, likes Likes) (Telegram, error) {
+	bot, err := tgbotapi.NewBotAPI(config.Telegram.Token)
 	if err != nil {
 		return Telegram{}, err
 	}
-	bot.Debug = config.Debug
+	bot.Debug = config.Telegram.Debug
 	tg := Telegram{
-		likes:   likes,
-		bot:     bot,
-		timeout: config.Timeout,
+		likes:    likes,
+		bot:      bot,
+		timeout:  config.Telegram.Timeout,
+		messages: config.Messages,
 	}
 	return tg, nil
 }

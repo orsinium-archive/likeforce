@@ -6,9 +6,16 @@ import (
 )
 
 type TelegramConfig struct {
-	Token   string `toml:"token"`
-	Debug   bool   `toml:"debug"`
-	Timeout int    `toml:"timeout"`
+	Token   string
+	Debug   bool
+	Timeout int
+}
+
+type MessagesConfig struct {
+	Like     string
+	Liked    string
+	Disliked string
+	Error    string
 }
 
 // type RedisConfig struct {
@@ -19,6 +26,7 @@ type TelegramConfig struct {
 
 type Config struct {
 	Telegram TelegramConfig
+	Messages MessagesConfig
 	Redis    redis.Options
 }
 
