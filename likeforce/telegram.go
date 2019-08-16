@@ -2,6 +2,8 @@ package likeforce
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/francoispqt/onelog"
 
@@ -31,7 +33,9 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 	msg.ReplyToMessageID = update.Message.MessageID
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(tg.messages.Like, fmt.Sprintf("%d", update.Message.MessageID)),
+			tgbotapi.NewInlineKeyboardButtonData(
+				tg.messages.Like,
+				fmt.Sprintf("%d:%d", update.Message.Chat.ID, update.Message.MessageID)),
 		),
 	)
 	_, err = tg.bot.Send(msg)
@@ -43,16 +47,79 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 }
 
 func (tg *Telegram) processButton(update tgbotapi.Update) {
-	tg.logger.InfoWith("new button request").String("from", update.CallbackQuery.From.String()).Write()
+	msg := update.CallbackQuery
+	tg.logger.InfoWith("new button request").String("from", msg.From.String()).Write()
 
-	_, err := tg.bot.AnswerCallbackQuery(
-		tgbotapi.NewCallback(update.CallbackQuery.ID, tg.messages.Liked),
+	// parse chat and post IDs
+	parts := strings.SplitN(msg.Data, ":", 2)
+	chatID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		tg.logger.ErrorWith("cannot extract chat id").Err("error", err).Write()
+		return
+	}
+	postID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		tg.logger.ErrorWith("cannot extract post id").Err("error", err).Write()
+		return
+	}
+
+	// check post existence
+	postExists, err := tg.posts.Has(chatID, postID)
+	if err != nil {
+		tg.logger.ErrorWith("cannot check post existence").Err("error", err).Write()
+		return
+	}
+	if !postExists {
+		tg.logger.WarnWith("cannot find post").Err("error", err).Write()
+		_, err := tg.bot.AnswerCallbackQuery(
+			tgbotapi.NewCallback(msg.ID, tg.messages.Error),
+		)
+		if err != nil {
+			tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
+		}
+		return
+	}
+
+	// dislike post if laready liked, like otherwise
+	liked, err := tg.likes.Has(chatID, postID, msg.From.ID)
+	if err != nil {
+		tg.logger.ErrorWith("cannot check like existence").Err("error", err).Write()
+		return
+	}
+	var responseText string
+	if liked {
+		responseText = tg.removeLike(chatID, postID, msg)
+	} else {
+		responseText = tg.addLike(chatID, postID, msg)
+	}
+
+	// send response
+	_, err = tg.bot.AnswerCallbackQuery(
+		tgbotapi.NewCallback(msg.ID, responseText),
 	)
 	if err != nil {
 		tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
 		return
 	}
-	tg.logger.InfoWith("button response sent").String("to", update.CallbackQuery.From.String()).Write()
+	tg.logger.InfoWith("button response sent").String("to", msg.From.String()).Write()
+}
+
+func (tg *Telegram) addLike(chatID int64, postID int, msg *tgbotapi.CallbackQuery) string {
+	err := tg.likes.Add(chatID, postID, msg.From.ID)
+	if err != nil {
+		tg.logger.ErrorWith("cannot add like").Err("error", err).Write()
+		return tg.messages.Error
+	}
+	return tg.messages.Liked
+}
+
+func (tg *Telegram) removeLike(chatID int64, postID int, msg *tgbotapi.CallbackQuery) string {
+	err := tg.likes.Remove(chatID, postID, msg.From.ID)
+	if err != nil {
+		tg.logger.ErrorWith("cannot remove like").Err("error", err).Write()
+		return tg.messages.Error
+	}
+	return tg.messages.Disliked
 }
 
 // Serve forever to process all incoming messages

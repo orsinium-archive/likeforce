@@ -25,10 +25,15 @@ func (storage *Posts) Add(chat int64, post int) (err error) {
 
 // Has returns true if post is already added in channel
 func (storage *Posts) Has(chat int64, post int) (bool, error) {
-	return storage.client.SIsMember(
-		makeKeyChat(chat),
-		post,
-	).Result()
+	key := makeKeyChat(chat)
+	result, err := storage.client.Exists(key).Result()
+	if err != nil {
+		return false, err
+	}
+	if result == 0 {
+		return false, nil
+	}
+	return storage.client.SIsMember(key, post).Result()
 }
 
 // NewPosts creates Posts with a new Redis connection
