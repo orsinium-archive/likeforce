@@ -10,6 +10,7 @@ import (
 // Telegram is a main logic for handling messages
 type Telegram struct {
 	likes    Likes
+	posts    Posts
 	bot      *tgbotapi.BotAPI
 	timeout  int
 	messages MessagesConfig
@@ -59,7 +60,7 @@ func (tg *Telegram) Serve() error {
 }
 
 // NewTelegram creates Telegram instance
-func NewTelegram(config Config, likes Likes) (Telegram, error) {
+func NewTelegram(config Config, likes Likes, posts Posts) (Telegram, error) {
 	bot, err := tgbotapi.NewBotAPI(config.Telegram.Token)
 	if err != nil {
 		return Telegram{}, err
@@ -67,6 +68,7 @@ func NewTelegram(config Config, likes Likes) (Telegram, error) {
 	bot.Debug = config.Telegram.Debug
 	tg := Telegram{
 		likes:    likes,
+		posts:    posts,
 		bot:      bot,
 		timeout:  config.Telegram.Timeout,
 		messages: config.Messages,
