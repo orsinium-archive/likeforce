@@ -25,16 +25,6 @@ func makeKeyName(user int) string {
 	return fmt.Sprintf("likes:user:login:%d", user)
 }
 
-// AddPost to increment posts count for user
-func (storage *Users) AddPost(chat int64, user int) error {
-	return storage.client.Incr(makeKeyPosts(chat, user)).Err()
-}
-
-// AddRating to increment rating for user
-func (storage *Users) AddRating(chat int64, user int) error {
-	return storage.client.Incr(makeKeyRating(chat, user)).Err()
-}
-
 // AddName to save username
 func (storage *Users) AddName(user int, name string) error {
 	return storage.client.Set(makeKeyName(user), name, 0).Err()
@@ -43,11 +33,6 @@ func (storage *Users) AddName(user int, name string) error {
 // GetName to get username
 func (storage *Users) GetName(user int) (string, error) {
 	return storage.client.Get(makeKeyName(user)).Result()
-}
-
-// RemoveRating to decrement rating for user
-func (storage *Users) RemoveRating(chat int64, user int) error {
-	return storage.client.Decr(makeKeyRating(chat, user)).Err()
 }
 
 // List returns list of registered users IDs
@@ -70,32 +55,6 @@ func (storage *Users) List(chat int64) (users []int, err error) {
 		users = append(users, userID)
 	}
 	return
-}
-
-// PostsCount to get posts count for user
-func (storage *Users) PostsCount(chat int64, user int) (int, error) {
-	key := makeKeyPosts(chat, user)
-	keysCount, err := storage.client.Exists(key).Result()
-	if err != nil {
-		return 0, err
-	}
-	if keysCount == 0 {
-		return 0, nil
-	}
-	return storage.client.Get(key).Int()
-}
-
-// RatingCount to get rating for user
-func (storage *Users) RatingCount(chat int64, user int) (int, error) {
-	key := makeKeyRating(chat, user)
-	keysCount, err := storage.client.Exists(key).Result()
-	if err != nil {
-		return 0, err
-	}
-	if keysCount == 0 {
-		return 0, nil
-	}
-	return storage.client.Get(key).Int()
 }
 
 // ByteCount to make human-readable rating

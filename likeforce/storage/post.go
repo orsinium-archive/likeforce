@@ -17,12 +17,9 @@ func (post *Post) Like(userID int) Like {
 	return Like{PostID: post.ID, ChatID: post.ChatID, UserID: userID}
 }
 
-// Create to save a new post for given chat
-func (post *Post) Create() (err error) {
-	return post.client.SAdd(
-		makeKeyPosts(post.ChatID),
-		post,
-	).Err()
+// Author returns Author instance for current Post and given User
+func (post *Post) Author(userID int) Author {
+	return Author{PostID: post.ID, ChatID: post.ChatID, UserID: userID}
 }
 
 // Exists returns true if post is already registered

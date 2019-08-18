@@ -13,7 +13,15 @@ func makeKeyPostLikes(chat int64, post int) string {
 }
 
 func makeKeyUserLikes(chat int64, user int) string {
-	return fmt.Sprintf("%s:chat-%d:user-%d:set", prefix, chat, user)
+	return fmt.Sprintf("%s:chat-%d:user-%d:likes:set", prefix, chat, user)
+}
+
+func makeKeyUserPosts(chat int64, user int) string {
+	return fmt.Sprintf("%s:chat-%d:user-%d:posts:set", prefix, chat, user)
+}
+
+func makeKeyUserRating(chat int64, user int) string {
+	return fmt.Sprintf("%s:chat-%d:user-%d:rating:int", prefix, chat, user)
 }
 
 func makeValuePost(chat int64, post int) string {

@@ -4,13 +4,14 @@ import (
 	"fmt"
 
 	"github.com/francoispqt/onelog"
+	"github.com/orsinium/likeforce/likeforce/storage"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 // Telegram is a main logic for handling messages
 type Telegram struct {
-	storage  Storage
+	storage  storage.Storage
 	bot      *tgbotapi.BotAPI
 	timeout  int
 	messages MessagesConfig
@@ -19,11 +20,12 @@ type Telegram struct {
 
 func (tg *Telegram) processMessage(update tgbotapi.Update) {
 	tg.logger.InfoWith("new message").String("from", update.Message.From.String()).Write()
-	chatID := update.Message.Chat.ID
-	postID := update.Message.MessageID
+
+	chat := tg.storage.Chat(update.Message.Chat.ID)
+	post := chat.Post(update.Message.MessageID)
 	userID := update.Message.From.ID
 
-	err := tg.storage.Posts.Add(chatID, postID)
+	err := post.Create()
 	if err != nil {
 		tg.logger.ErrorWith("cannot add post").Err("error", err).Write()
 		return

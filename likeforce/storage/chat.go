@@ -2,6 +2,7 @@ package storage
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/go-redis/redis"
 )
@@ -18,7 +19,7 @@ func (chat *Chat) Post(id int) Post {
 }
 
 // Posts returns list of registered posts for Chat
-func (chat *Chat) Posts() ([]int, error) {
+func (chat *Chat) Posts() ([]Post, error) {
 	key := makeKeyPosts(chat.ID)
 	result, err := chat.client.Exists(key).Result()
 	if err != nil {
@@ -27,17 +28,40 @@ func (chat *Chat) Posts() ([]int, error) {
 	if result == 0 {
 		return nil, nil
 	}
+
 	idsRaw, err := chat.client.SMembers(key).Result()
 	if err != nil {
 		return nil, err
 	}
-	ids := make([]int, len(idsRaw))
+	posts := make([]Post, len(idsRaw))
 	for _, idRaw := range idsRaw {
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
 			return nil, err
 		}
-		ids = append(ids, id)
+		posts = append(posts, Post{ID: id, ChatID: chat.ID, client: chat.client})
 	}
-	return ids, nil
+	return posts, nil
+}
+
+// Users returns list of users with posts in the Chat
+func (chat *Chat) Users() (users []User, err error) {
+	// get keys
+	pattern := strings.Replace(makeKeyUserPosts(chat.ID, 0), "user-0", "user-*", 1)
+	keys, err := chat.client.Keys(pattern).Result()
+	if err != nil {
+		return
+	}
+
+	// extract users IDs from keys
+	var userID int
+	for _, key := range keys {
+		parts := strings.Split(key, ":")
+		userID, err = strconv.Atoi(parts[len(parts)-1])
+		if err != nil {
+			return
+		}
+		users = append(users, User{ID: userID, ChatID: chat.ID, client: chat.client})
+	}
+	return
 }
