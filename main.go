@@ -14,26 +14,15 @@ func main() {
 		logger.FatalWith("cannot read config").Err("error", err).Write()
 		return
 	}
-	likes, err := likeforce.NewLikes(config.Redis)
+	storage, err := likeforce.NewStorage(config.Redis)
 	if err != nil {
-		logger.FatalWith("cannot create Redis connection for likes").Err("error", err).Write()
+		logger.FatalWith("cannot create Redis connection").Err("error", err).Write()
 		return
 	}
-	posts, err := likeforce.NewPosts(config.Redis)
-	if err != nil {
-		logger.FatalWith("cannot create Redis connection for posts").Err("error", err).Write()
-		return
-	}
-	users, err := likeforce.NewUsers(config.Redis)
-	if err != nil {
-		logger.FatalWith("cannot create Redis connection for posts").Err("error", err).Write()
-		return
-	}
-	tg, err := likeforce.NewTelegram(config, likes, posts, users, logger)
+	tg, err := likeforce.NewTelegram(config, storage, logger)
 	if err != nil {
 		logger.FatalWith("cannot create Telegram connection").Err("error", err).Write()
 		return
 	}
-	logger.Info("Serve")
 	tg.Serve()
 }

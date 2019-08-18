@@ -10,9 +10,7 @@ import (
 
 // Telegram is a main logic for handling messages
 type Telegram struct {
-	likes    Likes
-	posts    Posts
-	users    Users
+	storage  Storage
 	bot      *tgbotapi.BotAPI
 	timeout  int
 	messages MessagesConfig
@@ -25,19 +23,19 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 	postID := update.Message.MessageID
 	userID := update.Message.From.ID
 
-	err := tg.posts.Add(chatID, postID)
+	err := tg.storage.Posts.Add(chatID, postID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot add post").Err("error", err).Write()
 		return
 	}
 
-	stat, err := tg.users.Stat(chatID, userID)
+	stat, err := tg.storage.Users.Stat(chatID, userID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot get stat for user").Err("error", err).Write()
 		return
 	}
 
-	err = tg.users.AddPost(chatID, userID)
+	err = tg.storage.Users.AddPost(chatID, userID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot increment posts for user").Err("error", err).Write()
 		return
@@ -73,7 +71,7 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 	tg.logger.DebugWith("ids").Int64("chat", chatID).Int("post", postID).Int("user", userID).Write()
 
 	// check post existence
-	postExists, err := tg.posts.Has(chatID, postID)
+	postExists, err := tg.storage.Posts.Has(chatID, postID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot check post existence").Err("error", err).Write()
 		return tg.messages.Error
@@ -90,29 +88,29 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 	}
 
 	// dislike post if laready liked, like otherwise
-	liked, err := tg.likes.Has(chatID, postID, userID)
+	liked, err := tg.storage.Likes.Has(chatID, postID, userID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot check like existence").Err("error", err).Write()
 		return tg.messages.Error
 	}
 	if liked {
-		err = tg.likes.Remove(chatID, postID, userID)
+		err = tg.storage.Likes.Remove(chatID, postID, userID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot remove like").Err("error", err).Write()
 			return tg.messages.Error
 		}
-		err = tg.users.RemoveRating(chatID, userID)
+		err = tg.storage.Users.RemoveRating(chatID, userID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot decrement rating").Err("error", err).Write()
 			return tg.messages.Error
 		}
 	} else {
-		err = tg.likes.Add(chatID, postID, userID)
+		err = tg.storage.Likes.Add(chatID, postID, userID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot add like").Err("error", err).Write()
 			return tg.messages.Error
 		}
-		err = tg.users.AddRating(chatID, userID)
+		err = tg.storage.Users.AddRating(chatID, userID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot increment rating").Err("error", err).Write()
 			return tg.messages.Error
@@ -125,7 +123,7 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 		tg.logger.ErrorWith("cannot get button ID").Err("error", err).Write()
 		return tg.messages.Error
 	}
-	likesCount, err := tg.likes.Count(chatID, postID)
+	likesCount, err := tg.storage.Likes.Count(chatID, postID)
 	_, err = tg.bot.Send(
 		tgbotapi.NewEditMessageReplyMarkup(chatID, buttonID, tg.makeButton(chatID, buttonID, likesCount)),
 	)
@@ -158,6 +156,7 @@ func (tg *Telegram) makeButton(chatID int64, postID int, likesCount int) tgbotap
 
 // Serve forever to process all incoming messages
 func (tg *Telegram) Serve() error {
+	tg.logger.Info("serve")
 	u := tgbotapi.NewUpdate(0)
 	if tg.timeout != 0 {
 		u.Timeout = tg.timeout
@@ -169,6 +168,8 @@ func (tg *Telegram) Serve() error {
 	}
 
 	for update := range updates {
+		tg.logger.Debug("new update")
+
 		// process pressed button
 		if update.CallbackQuery != nil {
 			responseText := tg.processButton(update)
@@ -191,16 +192,14 @@ func (tg *Telegram) Serve() error {
 }
 
 // NewTelegram creates Telegram instance
-func NewTelegram(config Config, likes Likes, posts Posts, users Users, logger *onelog.Logger) (Telegram, error) {
+func NewTelegram(config Config, storage Storage, logger *onelog.Logger) (Telegram, error) {
 	bot, err := tgbotapi.NewBotAPI(config.Telegram.Token)
 	if err != nil {
 		return Telegram{}, err
 	}
 	bot.Debug = config.Telegram.Debug
 	tg := Telegram{
-		likes:    likes,
-		posts:    posts,
-		users:    users,
+		storage:  storage,
 		bot:      bot,
 		timeout:  config.Telegram.Timeout,
 		messages: config.Messages,

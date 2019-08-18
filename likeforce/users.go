@@ -90,13 +90,3 @@ func (storage *Users) Stat(chat int64, user int) (string, error) {
 	const tmpl = "user stat:\nposts: %s\nrating: %s"
 	return fmt.Sprintf(tmpl, ByteCount(posts), ByteCount(rating)), nil
 }
-
-// NewUsers creates Users with a new Redis connection
-func NewUsers(config redis.Options) (Users, error) {
-	client := redis.NewClient(&config)
-	_, err := client.Ping().Result()
-	if err != nil {
-		return Users{}, err
-	}
-	return Users{client: client}, nil
-}

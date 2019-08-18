@@ -67,13 +67,3 @@ func (storage *Likes) Has(chat int64, post, user int) (bool, error) {
 func (storage *Likes) Count(chat int64, post int) (int, error) {
 	return storage.client.Get(makeKeyPost(chat, post, 0)).Int()
 }
-
-// NewLikes creates Likes with a new Redis connection
-func NewLikes(config redis.Options) (Likes, error) {
-	client := redis.NewClient(&config)
-	_, err := client.Ping().Result()
-	if err != nil {
-		return Likes{}, err
-	}
-	return Likes{client: client}, nil
-}

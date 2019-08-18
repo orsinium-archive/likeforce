@@ -35,13 +35,3 @@ func (storage *Posts) Has(chat int64, post int) (bool, error) {
 	}
 	return storage.client.SIsMember(key, post).Result()
 }
-
-// NewPosts creates Posts with a new Redis connection
-func NewPosts(config redis.Options) (Posts, error) {
-	client := redis.NewClient(&config)
-	_, err := client.Ping().Result()
-	if err != nil {
-		return Posts{}, err
-	}
-	return Posts{client: client}, nil
-}
