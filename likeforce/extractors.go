@@ -8,7 +8,8 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func ExtractChatId(update tgbotapi.Update) (int64, error) {
+// ExtractChatID extracts ID of the chat from which update goes
+func ExtractChatID(update tgbotapi.Update) (int64, error) {
 	if update.Message != nil {
 		return update.Message.Chat.ID, nil
 	}
@@ -25,7 +26,8 @@ func ExtractChatId(update tgbotapi.Update) (int64, error) {
 	return 0, errors.New("cannot extract chat id")
 }
 
-func ExtractPostId(update tgbotapi.Update) (int, error) {
+// ExtractPostID extracts ID of the message that button was reply on
+func ExtractPostID(update tgbotapi.Update) (int, error) {
 	if update.CallbackQuery == nil {
 		return update.Message.MessageID, nil
 	}
@@ -37,6 +39,7 @@ func ExtractPostId(update tgbotapi.Update) (int, error) {
 	return strconv.Atoi(parts[1])
 }
 
+// ExtractButtonID extract ID of the message with button from callback request
 func ExtractButtonID(update tgbotapi.Update) (int, error) {
 	if update.CallbackQuery == nil {
 		return 0, errors.New("can extract button ID only from callback response")
@@ -44,6 +47,6 @@ func ExtractButtonID(update tgbotapi.Update) (int, error) {
 	if update.CallbackQuery.Message != nil {
 		return update.CallbackQuery.Message.MessageID, nil
 	}
-	postID, err := ExtractPostId(update)
+	postID, err := ExtractPostID(update)
 	return postID + 1, err
 }

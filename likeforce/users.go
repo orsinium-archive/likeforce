@@ -36,12 +36,28 @@ func (storage *Users) RemoveRating(chat int64, user int) error {
 
 // PostsCount to get posts count for user
 func (storage *Users) PostsCount(chat int64, user int) (int, error) {
-	return storage.client.Get(makeKeyPosts(chat, user)).Int()
+	key := makeKeyPosts(chat, user)
+	keysCount, err := storage.client.Exists(key).Result()
+	if err != nil {
+		return 0, err
+	}
+	if keysCount == 0 {
+		return 0, nil
+	}
+	return storage.client.Get(key).Int()
 }
 
 // RatingCount to get rating for user
 func (storage *Users) RatingCount(chat int64, user int) (int, error) {
-	return storage.client.Get(makeKeyRating(chat, user)).Int()
+	key := makeKeyRating(chat, user)
+	keysCount, err := storage.client.Exists(key).Result()
+	if err != nil {
+		return 0, err
+	}
+	if keysCount == 0 {
+		return 0, nil
+	}
+	return storage.client.Get(key).Int()
 }
 
 // ByteCount to make human-readable rating

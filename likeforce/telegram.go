@@ -60,12 +60,12 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 
 	// parse IDs
 	userID := msg.From.ID
-	chatID, err := ExtractChatId(update)
+	chatID, err := ExtractChatID(update)
 	if err != nil {
 		tg.logger.ErrorWith("cannot extract chat id").Err("error", err).Write()
 		return
 	}
-	postID, err := ExtractPostId(update)
+	postID, err := ExtractPostID(update)
 	if err != nil {
 		tg.logger.ErrorWith("cannot extract post id").Err("error", err).Write()
 		return
@@ -156,7 +156,7 @@ func (tg *Telegram) makeButton(chatID int64, postID int, likesCount int) tgbotap
 	if likesCount == 0 {
 		text = tg.messages.Like
 	} else {
-		text = fmt.Sprintf("%s - %d", tg.messages.Like, likesCount)
+		text = fmt.Sprintf("%s %s", tg.messages.Like, ByteCount(likesCount))
 	}
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(

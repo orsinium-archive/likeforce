@@ -5,12 +5,14 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// TelegramConfig is a container for telegram configuration
 type TelegramConfig struct {
 	Token   string
 	Debug   bool
 	Timeout int
 }
 
+// MessagesConfig is a container for bot messages customization
 type MessagesConfig struct {
 	Like     string
 	Liked    string
@@ -18,18 +20,14 @@ type MessagesConfig struct {
 	Error    string
 }
 
-// type RedisConfig struct {
-// 	Addr     string `toml:"address"`
-// 	Password string `toml:"password"`
-// 	DB       int    `toml:"database"`
-// }
-
+// Config is a container for TOML config content
 type Config struct {
 	Telegram TelegramConfig
 	Messages MessagesConfig
 	Redis    redis.Options
 }
 
+// ReadConfig reads TOML config into Config
 func ReadConfig(path string) (Config, error) {
 	var config Config
 	_, err := toml.DecodeFile(path, &config)
