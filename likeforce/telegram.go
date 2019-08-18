@@ -54,7 +54,7 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 	tg.logger.InfoWith("message sent").String("to", update.Message.From.String()).Write()
 }
 
-func (tg *Telegram) processButton(update tgbotapi.Update) {
+func (tg *Telegram) processButton(update tgbotapi.Update) string {
 	msg := update.CallbackQuery
 	tg.logger.InfoWith("new button request").String("from", msg.From.String()).Write()
 
@@ -63,12 +63,12 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	chatID, err := ExtractChatID(update)
 	if err != nil {
 		tg.logger.ErrorWith("cannot extract chat id").Err("error", err).Write()
-		return
+		return tg.messages.Error
 	}
 	postID, err := ExtractPostID(update)
 	if err != nil {
 		tg.logger.ErrorWith("cannot extract post id").Err("error", err).Write()
-		return
+		return tg.messages.Error
 	}
 	tg.logger.DebugWith("ids").Int64("chat", chatID).Int("post", postID).Int("user", userID).Write()
 
@@ -76,7 +76,7 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	postExists, err := tg.posts.Has(chatID, postID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot check post existence").Err("error", err).Write()
-		return
+		return tg.messages.Error
 	}
 	if !postExists {
 		tg.logger.WarnWith("cannot find post").Err("error", err).Write()
@@ -86,36 +86,36 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 		if err != nil {
 			tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
 		}
-		return
+		return tg.messages.Error
 	}
 
 	// dislike post if laready liked, like otherwise
 	liked, err := tg.likes.Has(chatID, postID, userID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot check like existence").Err("error", err).Write()
-		return
+		return tg.messages.Error
 	}
 	if liked {
 		err = tg.likes.Remove(chatID, postID, userID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot remove like").Err("error", err).Write()
-			return
+			return tg.messages.Error
 		}
 		err = tg.users.RemoveRating(chatID, userID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot decrement rating").Err("error", err).Write()
-			return
+			return tg.messages.Error
 		}
 	} else {
 		err = tg.likes.Add(chatID, postID, userID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot add like").Err("error", err).Write()
-			return
+			return tg.messages.Error
 		}
 		err = tg.users.AddRating(chatID, userID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot increment rating").Err("error", err).Write()
-			return
+			return tg.messages.Error
 		}
 	}
 
@@ -123,7 +123,7 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	buttonID, err := ExtractButtonID(update)
 	if err != nil {
 		tg.logger.ErrorWith("cannot get button ID").Err("error", err).Write()
-		return
+		return tg.messages.Error
 	}
 	likesCount, err := tg.likes.Count(chatID, postID)
 	_, err = tg.bot.Send(
@@ -131,24 +131,15 @@ func (tg *Telegram) processButton(update tgbotapi.Update) {
 	)
 	if err != nil {
 		tg.logger.ErrorWith("cannot update button").Err("error", err).Write()
-		return
+		return tg.messages.Error
 	}
 
 	// send response
-	var responseText string
 	if liked {
-		responseText = tg.messages.Disliked
-	} else {
-		responseText = tg.messages.Liked
+		return tg.messages.Disliked
 	}
-	_, err = tg.bot.AnswerCallbackQuery(
-		tgbotapi.NewCallback(msg.ID, responseText),
-	)
-	if err != nil {
-		tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
-		return
-	}
-	tg.logger.InfoWith("button response sent").String("to", msg.From.String()).Write()
+	return tg.messages.Liked
+
 }
 
 func (tg *Telegram) makeButton(chatID int64, postID int, likesCount int) tgbotapi.InlineKeyboardMarkup {
@@ -178,10 +169,21 @@ func (tg *Telegram) Serve() error {
 	}
 
 	for update := range updates {
+		// process pressed button
 		if update.CallbackQuery != nil {
-			tg.processButton(update)
+			responseText := tg.processButton(update)
+			_, err = tg.bot.AnswerCallbackQuery(
+				tgbotapi.NewCallback(update.CallbackQuery.ID, responseText),
+			)
+			if err != nil {
+				tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
+			} else {
+				tg.logger.InfoWith("button response sent").String("to", update.CallbackQuery.From.String()).Write()
+			}
 		}
-		if update.Message != nil { // ignore any non-Message Updates
+
+		// process a new message in group
+		if update.Message != nil {
 			tg.processMessage(update)
 		}
 	}
