@@ -15,7 +15,7 @@ type TelegramConfig struct {
 
 // MessagesConfig is a container for bot messages customization
 type MessagesConfig struct {
-	Like     string
+	Like     []string
 	Liked    string
 	Disliked string
 	Error    string

@@ -1,0 +1,13 @@
+[telegram]
+admin = "orsinium"
+token = "..."
+
+[redis]
+addr = "localhost:6379"
+
+[messages]
+like = ["❤", "🧡", "💛", "💚", "💙", "💜", "🖤"]
+liked = "you ❤️ it!"
+disliked = "you got your 💔 back"
+error = "Whoops... Something went wrong."
+

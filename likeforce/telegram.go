@@ -163,17 +163,22 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 }
 
 func (tg *Telegram) makeButton(chatID int64, postID int, likesCount int) tgbotapi.InlineKeyboardMarkup {
-	var text string
-	if likesCount == 0 {
-		text = tg.messages.Like
-	} else {
-		text = fmt.Sprintf("%s %s", tg.messages.Like, ByteCount(likesCount))
+	text := getButtonText(likesCount, tg.messages.Like)
+	if likesCount > 0 {
+		text = fmt.Sprintf("%s %s", text, ByteCount(likesCount))
 	}
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(text, fmt.Sprintf("%d:%d", chatID, postID)),
 		),
 	)
+}
+
+func getButtonText(likesCount int, messages []string) string {
+	if len(messages) == 1 {
+		return messages[0]
+	}
+	return messages[likesCount%len(messages)]
 }
 
 func (tg *Telegram) processDigest(update tgbotapi.Update) string {
