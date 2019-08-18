@@ -47,6 +47,7 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 	msg := tgbotapi.NewMessage(chat.ID, stat)
 	msg.ReplyToMessageID = post.ID
 	msg.DisableNotification = true
+	msg.ParseMode = "Markdown"
 	msg.ReplyMarkup = tg.makeButton(chat.ID, post.ID, 0)
 	_, err = tg.bot.Send(msg)
 	if err != nil {
@@ -178,7 +179,7 @@ func getButtonText(likesCount int, messages []string) string {
 	if len(messages) == 1 {
 		return messages[0]
 	}
-	return messages[likesCount%10%len(messages)]
+	return messages[likesCount/10%len(messages)]
 }
 
 func (tg *Telegram) processDigest(update tgbotapi.Update) string {

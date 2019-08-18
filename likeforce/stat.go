@@ -34,6 +34,6 @@ func UserStat(user storage.User) (string, error) {
 	if posts == nil {
 		return "First blood!", nil
 	}
-	const tmpl = "user stat:\nposts: %s\nrating: %s"
+	const tmpl = "*user stat:*\n\nposts: `%s`\nrating: `%s`"
 	return fmt.Sprintf(tmpl, ByteCount(len(posts)), ByteCount(rating)), nil
 }
