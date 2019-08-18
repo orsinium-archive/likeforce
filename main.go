@@ -5,6 +5,7 @@ import (
 
 	"github.com/francoispqt/onelog"
 	"github.com/orsinium/likeforce/likeforce"
+	"github.com/orsinium/likeforce/likeforce/storage"
 )
 
 func main() {
@@ -14,7 +15,7 @@ func main() {
 		logger.FatalWith("cannot read config").Err("error", err).Write()
 		return
 	}
-	storage, err := likeforce.NewStorage(config.Redis)
+	storage, err := storage.NewStorage(config.Redis)
 	if err != nil {
 		logger.FatalWith("cannot create Redis connection").Err("error", err).Write()
 		return

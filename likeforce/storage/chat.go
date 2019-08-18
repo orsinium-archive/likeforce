@@ -14,8 +14,13 @@ type Chat struct {
 }
 
 // Post returns Post instance for current Chat
-func (chat *Chat) Post(id int) Post {
-	return Post{ID: id, ChatID: chat.ID, client: chat.client}
+func (chat *Chat) Post(id int) *Post {
+	return &Post{ID: id, ChatID: chat.ID, client: chat.client}
+}
+
+// User returns User instance for current Chat
+func (chat *Chat) User(id int) *User {
+	return &User{ID: id, ChatID: chat.ID, client: chat.client}
 }
 
 // Posts returns list of registered posts for Chat
@@ -34,12 +39,12 @@ func (chat *Chat) Posts() ([]Post, error) {
 		return nil, err
 	}
 	posts := make([]Post, len(idsRaw))
-	for _, idRaw := range idsRaw {
+	for i, idRaw := range idsRaw {
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
 			return nil, err
 		}
-		posts = append(posts, Post{ID: id, ChatID: chat.ID, client: chat.client})
+		posts[i] = Post{ID: id, ChatID: chat.ID, client: chat.client}
 	}
 	return posts, nil
 }
@@ -56,8 +61,8 @@ func (chat *Chat) Users() (users []User, err error) {
 	// extract users IDs from keys
 	var userID int
 	for _, key := range keys {
-		parts := strings.Split(key, ":")
-		userID, err = strconv.Atoi(parts[len(parts)-1])
+		part := strings.Split(strings.Split(key, "user-")[1], ":")[0]
+		userID, err = strconv.Atoi(part)
 		if err != nil {
 			return
 		}

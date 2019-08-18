@@ -15,8 +15,18 @@ type User struct {
 }
 
 // Rating return Rating instance to perform operations with user's rating
-func (user *User) Rating() Rating {
-	return Rating{user}
+func (user *User) Rating() *Rating {
+	return &Rating{user}
+}
+
+// SetName to save username
+func (user *User) SetName(name string) error {
+	return user.client.Set(makeKeyUserName(user.ID), name, 0).Err()
+}
+
+// Name to get username
+func (user *User) Name() (string, error) {
+	return user.client.Get(makeKeyUserName(user.ID)).Result()
 }
 
 // Posts to get posts count for user
@@ -38,12 +48,12 @@ func (user *User) Posts() ([]Post, error) {
 		return nil, err
 	}
 	posts := make([]Post, len(idsRaw))
-	for _, idRaw := range idsRaw {
+	for i, idRaw := range idsRaw {
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
 			return nil, err
 		}
-		posts = append(posts, Post{ID: id, ChatID: user.ChatID, client: user.client})
+		posts[i] = Post{ID: id, ChatID: user.ChatID, client: user.client}
 	}
 	return posts, nil
 }

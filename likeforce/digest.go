@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/joomcode/errorx"
+	"github.com/orsinium/likeforce/likeforce/storage"
 )
 
 type userInfo struct {
@@ -24,35 +24,20 @@ type postInfo struct {
 	rating int
 }
 
-func (tg *Telegram) processDigest(update tgbotapi.Update) string {
-	digestUsers, err := MakeDigestUsers(tg.storage, update.Message.Chat.ID)
-	if err != nil {
-		tg.logger.ErrorWith("cannot make users digest").Err("error", err).Write()
-		return tg.messages.Error
-	}
-	digestPosts, err := MakeDigestPosts(tg.storage, update.Message.Chat.ID, update.Message.Chat.UserName)
-	if err != nil {
-		tg.logger.ErrorWith("cannot make posts digest").Err("error", err).Write()
-		return tg.messages.Error
-	}
-	return digestUsers + "\n\n" + digestPosts
-}
-
 // MakeDigestUsers returns text digest about top users for given chat
-func MakeDigestUsers(storage Storage, chatID int64) (string, error) {
+func MakeDigestUsers(chat *storage.Chat) (string, error) {
 	// get users and their rating
-	ids, err := storage.Users.List(chatID)
+	rawUsers, err := chat.Users()
 	if err != nil {
-		return "", err
+		return "", errorx.Decorate(err, "cannot get users")
 	}
-	users := make([]userInfo, len(ids))
-	for _, userID := range ids {
-		rating, err := storage.Users.RatingCount(chatID, userID)
+	users := make([]userInfo, len(rawUsers))
+	for i, rawUser := range rawUsers {
+		rating, err := rawUser.Rating().Get()
 		if err != nil {
-			return "", err
+			return "", errorx.Decorate(err, "cannot get user rating", rawUser.ID)
 		}
-		user := userInfo{id: userID, rating: rating}
-		users = append(users, user)
+		users[i] = userInfo{id: rawUser.ID, rating: rating}
 	}
 
 	// sort users by rating
@@ -66,9 +51,9 @@ func MakeDigestUsers(storage Storage, chatID int64) (string, error) {
 		if user.rating == 0 {
 			continue
 		}
-		user.name, err = storage.Users.GetName(user.id)
+		user.name, err = chat.User(user.id).Name()
 		if err != nil {
-			return "", err
+			return "", errorx.Decorate(err, "cannot get user name", user.id)
 		}
 		digest += fmt.Sprintf("\n%d. [%s](tg://user?id=%d): (%s)", i+1, user.name, user.id, ByteCount(user.rating))
 	}
@@ -76,20 +61,19 @@ func MakeDigestUsers(storage Storage, chatID int64) (string, error) {
 }
 
 // MakeDigestPosts returns text digest about top users for given chat
-func MakeDigestPosts(storage Storage, chatID int64, chatName string) (string, error) {
+func MakeDigestPosts(chat *storage.Chat, chatName string) (string, error) {
 	// get users and their rating
-	ids, err := storage.Posts.List(chatID)
+	rawPosts, err := chat.Posts()
 	if err != nil {
 		return "", errorx.Decorate(err, "cannot list posts")
 	}
-	posts := make([]postInfo, len(ids))
-	for _, postID := range ids {
-		rating, err := storage.Likes.Count(chatID, postID)
+	posts := make([]postInfo, len(rawPosts))
+	for i, rawPost := range rawPosts {
+		rating, err := rawPost.Likes()
 		if err != nil {
 			return "", errorx.Decorate(err, "cannot get likes for post")
 		}
-		post := postInfo{id: postID, rating: rating}
-		posts = append(posts, post)
+		posts[i] = postInfo{id: rawPost.ID, rating: rating}
 	}
 
 	// sort posts by rating
@@ -149,6 +133,12 @@ func GetPostTitle(chatName string, postID int) (string, error) {
 		return "", errorx.Decorate(err, "cannot extract HTML element")
 	}
 	text := article.Text()
+
+	// extract project name from link preview title
+	title := doc.Find(".link_preview_title").First().Text()
+	if title != "" {
+		return title, nil
+	}
 
 	// extract project name from github URL
 	rexGitHub, err := regexp.Compile(`github\.com/[a-zA-Z\d\-]+/([a-zA-Z\d\.\-\_]+)`)

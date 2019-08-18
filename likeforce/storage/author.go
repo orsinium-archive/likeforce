@@ -22,8 +22,13 @@ func (author *Author) Create() error {
 	}
 
 	// add post into list of posts of the user
-	return author.client.SAdd(
-		makeKeyUserPosts(author.ChatID, author.UserID),
-		makeValuePost(author.ChatID, author.PostID),
-	).Err()
+	key := makeKeyUserPosts(author.ChatID, author.UserID)
+	err = author.client.SAdd(key, author.PostID).Err()
+	if err != nil {
+		return err
+	}
+
+	// save author for the post
+	key = makeKeyPostAuthor(author.ChatID, author.PostID)
+	return author.client.Set(key, author.UserID, -1).Err()
 }

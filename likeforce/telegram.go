@@ -23,35 +23,29 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 
 	chat := tg.storage.Chat(update.Message.Chat.ID)
 	post := chat.Post(update.Message.MessageID)
-	userID := update.Message.From.ID
+	user := chat.User(update.Message.From.ID)
 
-	err := post.Create()
+	err := post.Author(user.ID).Create()
 	if err != nil {
 		tg.logger.ErrorWith("cannot add post").Err("error", err).Write()
 		return
 	}
 
-	stat, err := tg.storage.Users.Stat(chatID, userID)
+	stat, err := UserStat(*user)
 	if err != nil {
 		tg.logger.ErrorWith("cannot get stat for user").Err("error", err).Write()
 		return
 	}
 
-	err = tg.storage.Users.AddPost(chatID, userID)
-	if err != nil {
-		tg.logger.ErrorWith("cannot increment posts for user").Err("error", err).Write()
-		return
-	}
-
-	err = tg.storage.Users.AddName(userID, update.Message.From.String())
+	err = user.SetName(update.Message.From.String())
 	if err != nil {
 		tg.logger.ErrorWith("cannot save username").Err("error", err).Write()
 		return
 	}
 
-	msg := tgbotapi.NewMessage(chatID, stat)
-	msg.ReplyToMessageID = postID
-	msg.ReplyMarkup = tg.makeButton(chatID, postID, 0)
+	msg := tgbotapi.NewMessage(chat.ID, stat)
+	msg.ReplyToMessageID = post.ID
+	msg.ReplyMarkup = tg.makeButton(chat.ID, post.ID, 0)
 	_, err = tg.bot.Send(msg)
 	if err != nil {
 		tg.logger.ErrorWith("cannot send message").Err("error", err).Write()
@@ -78,8 +72,14 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 	}
 	tg.logger.DebugWith("ids").Int64("chat", chatID).Int("post", postID).Int("user", userID).Write()
 
+	// create storage managers
+	chat := tg.storage.Chat(chatID)
+	post := chat.Post(postID)
+	user := chat.User(userID)
+	like := post.Like(user.ID)
+
 	// check post existence
-	postExists, err := tg.storage.Posts.Has(chatID, postID)
+	postExists, err := post.Exists()
 	if err != nil {
 		tg.logger.ErrorWith("cannot check post existence").Err("error", err).Write()
 		return tg.messages.Error
@@ -95,30 +95,38 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 		return tg.messages.Error
 	}
 
+	// get author
+	authorID, err := post.AuthorID()
+	if err != nil {
+		tg.logger.ErrorWith("cannot get post author").Err("error", err).Write()
+		return tg.messages.Error
+	}
+	rating := chat.User(authorID).Rating()
+
 	// dislike post if already liked, like otherwise
-	liked, err := tg.storage.Likes.Has(chatID, postID, userID)
+	liked, err := like.Exists(user.ID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot check like existence").Err("error", err).Write()
 		return tg.messages.Error
 	}
 	if liked {
-		err = tg.storage.Likes.Remove(chatID, postID, userID)
+		err = like.Remove(user.ID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot remove like").Err("error", err).Write()
 			return tg.messages.Error
 		}
-		err = tg.storage.Users.RemoveRating(chatID, userID)
+		err = rating.Decr()
 		if err != nil {
 			tg.logger.ErrorWith("cannot decrement rating").Err("error", err).Write()
 			return tg.messages.Error
 		}
 	} else {
-		err = tg.storage.Likes.Add(chatID, postID, userID)
+		err = like.Create(user.ID)
 		if err != nil {
 			tg.logger.ErrorWith("cannot add like").Err("error", err).Write()
 			return tg.messages.Error
 		}
-		err = tg.storage.Users.AddRating(chatID, userID)
+		err = rating.Incr()
 		if err != nil {
 			tg.logger.ErrorWith("cannot increment rating").Err("error", err).Write()
 			return tg.messages.Error
@@ -131,7 +139,7 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 		tg.logger.ErrorWith("cannot get button ID").Err("error", err).Write()
 		return tg.messages.Error
 	}
-	likesCount, err := tg.storage.Likes.Count(chatID, postID)
+	likesCount, err := post.Likes()
 	if err != nil {
 		tg.logger.ErrorWith("cannot get likes count").Err("error", err).Write()
 		return tg.messages.Error
@@ -164,6 +172,21 @@ func (tg *Telegram) makeButton(chatID int64, postID int, likesCount int) tgbotap
 			tgbotapi.NewInlineKeyboardButtonData(text, fmt.Sprintf("%d:%d", chatID, postID)),
 		),
 	)
+}
+
+func (tg *Telegram) processDigest(update tgbotapi.Update) string {
+	chat := tg.storage.Chat(update.Message.Chat.ID)
+	digestUsers, err := MakeDigestUsers(chat)
+	if err != nil {
+		tg.logger.ErrorWith("cannot make users digest").Err("error", err).Write()
+		return tg.messages.Error
+	}
+	digestPosts, err := MakeDigestPosts(chat, update.Message.Chat.UserName)
+	if err != nil {
+		tg.logger.ErrorWith("cannot make posts digest").Err("error", err).Write()
+		return tg.messages.Error
+	}
+	return digestUsers + "\n\n" + digestPosts
 }
 
 func (tg *Telegram) processUpdate(update tgbotapi.Update) {
@@ -220,7 +243,7 @@ func (tg *Telegram) Serve() error {
 }
 
 // NewTelegram creates Telegram instance
-func NewTelegram(config Config, storage Storage, logger *onelog.Logger) (Telegram, error) {
+func NewTelegram(config Config, storage storage.Storage, logger *onelog.Logger) (Telegram, error) {
 	bot, err := tgbotapi.NewBotAPI(config.Telegram.Token)
 	if err != nil {
 		return Telegram{}, err

@@ -8,8 +8,8 @@ type Storage struct {
 }
 
 // Chat creates a new Chat instance with current Redis connection
-func (storage *Storage) Chat(chatID int64) Chat {
-	return Chat{ID: chatID, client: storage.client}
+func (storage *Storage) Chat(chatID int64) *Chat {
+	return &Chat{ID: chatID, client: storage.client}
 }
 
 // NewStorage creates a Storage instance with a new Redis connection
