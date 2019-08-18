@@ -2,6 +2,8 @@ package likeforce
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/go-redis/redis"
 )
@@ -46,6 +48,28 @@ func (storage *Users) GetName(user int) (string, error) {
 // RemoveRating to decrement rating for user
 func (storage *Users) RemoveRating(chat int64, user int) error {
 	return storage.client.Decr(makeKeyRating(chat, user)).Err()
+}
+
+// List returns list of registered users IDs
+func (storage *Users) List(chat int64) (users []int, err error) {
+	// get keys
+	pattern := fmt.Sprintf("likes:user:rating:%d:*", chat)
+	keys, err := storage.client.Keys(pattern).Result()
+	if err != nil {
+		return
+	}
+
+	// extract users IDs from keys
+	var userID int
+	for _, key := range keys {
+		parts := strings.Split(key, ":")
+		userID, err = strconv.Atoi(parts[len(parts)-1])
+		if err != nil {
+			return
+		}
+		users = append(users, userID)
+	}
+	return
 }
 
 // PostsCount to get posts count for user
