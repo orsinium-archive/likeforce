@@ -3,6 +3,7 @@ package likeforce
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -69,7 +70,7 @@ func MakeDigestUsers(storage Storage, chatID int64) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		digest += fmt.Sprintf("\n%d. [%s](tg://user?id=%d): %s", i+1, user.name, user.id, ByteCount(user.rating))
+		digest += fmt.Sprintf("\n%d. [%s](tg://user?id=%d): (%s)", i+1, user.name, user.id, ByteCount(user.rating))
 	}
 	return digest, nil
 }
@@ -107,7 +108,7 @@ func MakeDigestPosts(storage Storage, chatID int64, chatName string) (string, er
 			return "", errorx.Decorate(err, "cannot get post title", chatName, post.id)
 		}
 		digest += fmt.Sprintf(
-			"\n%d. [%s](https://t.me/%s/%d): %s",
+			"\n%d. [%s](https://t.me/%s/%d) (%s)",
 			i+1, post.title, chatName, post.id, ByteCount(post.rating),
 		)
 	}
@@ -142,7 +143,29 @@ func GetPostTitle(chatName string, postID int) (string, error) {
 	if err != nil {
 		return "", errorx.Decorate(err, "cannot parse HTML")
 	}
-	text := doc.Find(".tgme_widget_message_text").Text()
+	article := doc.Find(".tgme_widget_message_text")
+	html, err := article.Html()
+	if err != nil {
+		return "", errorx.Decorate(err, "cannot extract HTML element")
+	}
+	text := article.Text()
 
-	return strings.Split(text, " ")[0], nil
+	// extract project name from github URL
+	rexGitHub, err := regexp.Compile(`github\.com/[a-zA-Z\d\-]+/([a-zA-Z\d\.\-\_]+)`)
+	if err != nil {
+		return "", errorx.Decorate(err, "cannot compile regexp")
+	}
+	if rexGitHub.MatchString(html) {
+		projectName := rexGitHub.FindStringSubmatch(html)[1]
+		return projectName, nil
+	}
+
+	// extract project name from the first link
+	projectName := article.Find("a").First().Text()
+	if projectName != "" {
+		return projectName, nil
+	}
+
+	// just return the first word
+	return strings.Split(text, " ")[0] + "...", nil
 }
