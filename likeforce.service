@@ -1,0 +1,13 @@
+# /lib/systemd/system/likeforce.service
+
+[Unit]
+Description=likeforce
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+ExecStart=/path/to/bin/likeforce --config /path/to/config.toml
+
+[Install]
+WantedBy=multi-user.target

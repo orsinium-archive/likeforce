@@ -6,11 +6,15 @@ import (
 	"github.com/francoispqt/onelog"
 	"github.com/orsinium/likeforce/likeforce"
 	"github.com/orsinium/likeforce/likeforce/storage"
+	"github.com/spf13/pflag"
 )
 
 func main() {
+	configPath := pflag.StringP("config", "c", "config.toml", "path to the config file")
+	pflag.Parse()
+
 	logger := onelog.New(os.Stdout, onelog.ALL)
-	config, err := likeforce.ReadConfig("config.toml")
+	config, err := likeforce.ReadConfig(*configPath)
 	if err != nil {
 		logger.FatalWith("cannot read config").Err("error", err).Write()
 		return
