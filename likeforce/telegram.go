@@ -178,7 +178,7 @@ func getButtonText(likesCount int, messages []string) string {
 	if len(messages) == 1 {
 		return messages[0]
 	}
-	return messages[likesCount%len(messages)]
+	return messages[likesCount%10%len(messages)]
 }
 
 func (tg *Telegram) processDigest(update tgbotapi.Update) string {
