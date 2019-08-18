@@ -19,6 +19,10 @@ func makeKeyRating(chat int64, user int) string {
 	return fmt.Sprintf("likes:user:rating:%d:%d", chat, user)
 }
 
+func makeKeyName(user int) string {
+	return fmt.Sprintf("likes:user:login:%d", user)
+}
+
 // AddPost to increment posts count for user
 func (storage *Users) AddPost(chat int64, user int) error {
 	return storage.client.Incr(makeKeyPosts(chat, user)).Err()
@@ -27,6 +31,16 @@ func (storage *Users) AddPost(chat int64, user int) error {
 // AddRating to increment rating for user
 func (storage *Users) AddRating(chat int64, user int) error {
 	return storage.client.Incr(makeKeyRating(chat, user)).Err()
+}
+
+// AddName to save username
+func (storage *Users) AddName(user int, name string) error {
+	return storage.client.Set(makeKeyName(user), name, 0).Err()
+}
+
+// GetName to get username
+func (storage *Users) GetName(user int) (string, error) {
+	return storage.client.Get(makeKeyName(user)).Result()
 }
 
 // RemoveRating to decrement rating for user

@@ -41,6 +41,12 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 		return
 	}
 
+	err = tg.storage.Users.AddName(userID, update.Message.From.String())
+	if err != nil {
+		tg.logger.ErrorWith("cannot save username").Err("error", err).Write()
+		return
+	}
+
 	msg := tgbotapi.NewMessage(chatID, stat)
 	msg.ReplyToMessageID = postID
 	msg.ReplyMarkup = tg.makeButton(chatID, postID, 0)
