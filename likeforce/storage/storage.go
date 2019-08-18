@@ -1,12 +1,15 @@
-package likeforce
+package storage
 
 import "github.com/go-redis/redis"
 
 // Storage is a collection of Redis data managers
 type Storage struct {
-	Likes Likes
-	Posts Posts
-	Users Users
+	client *redis.Client
+}
+
+// Chat creates a new Chat instance with current Redis connection
+func (storage *Storage) Chat(chatID int64) Chat {
+	return Chat{ID: chatID, client: storage.client}
 }
 
 // NewStorage creates a Storage instance with a new Redis connection
@@ -16,10 +19,6 @@ func NewStorage(config redis.Options) (Storage, error) {
 	if err != nil {
 		return Storage{}, err
 	}
-	storage := Storage{
-		Likes: Likes{client},
-		Posts: Posts{client},
-		Users: Users{client},
-	}
+	storage := Storage{client}
 	return storage, nil
 }

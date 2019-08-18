@@ -1,0 +1,52 @@
+package storage
+
+import (
+	"github.com/go-redis/redis"
+)
+
+// Post is a set of operations to store info about posts in Redis
+type Post struct {
+	ID     int
+	ChatID int64
+
+	client *redis.Client
+}
+
+// Like returns Like instance for current Post and given User
+func (post *Post) Like(userID int) Like {
+	return Like{PostID: post.ID, ChatID: post.ChatID, UserID: userID}
+}
+
+// Create to save a new post for given chat
+func (post *Post) Create() (err error) {
+	return post.client.SAdd(
+		makeKeyPosts(post.ChatID),
+		post,
+	).Err()
+}
+
+// Exists returns true if post is already registered
+func (post *Post) Exists() (bool, error) {
+	key := makeKeyPosts(post.ChatID)
+	result, err := post.client.Exists(key).Result()
+	if err != nil {
+		return false, err
+	}
+	if result == 0 {
+		return false, nil
+	}
+	return post.client.SIsMember(key, post).Result()
+}
+
+// Likes returns count of likes for a post
+func (post *Post) Likes() (int, error) {
+	key := makeKeyPostLikes(post.ChatID, post.ID)
+	result, err := post.client.Exists(key).Result()
+	if err != nil {
+		return 0, err
+	}
+	if result == 0 {
+		return 0, nil
+	}
+	return post.client.Get(key).Int()
+}
