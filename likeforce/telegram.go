@@ -154,6 +154,27 @@ func (tg *Telegram) makeButton(chatID int64, postID int, likesCount int) tgbotap
 	)
 }
 
+func (tg *Telegram) processUpdate(update tgbotapi.Update) {
+	// process pressed button
+	if update.CallbackQuery != nil {
+		responseText := tg.processButton(update)
+		_, err := tg.bot.AnswerCallbackQuery(
+			tgbotapi.NewCallback(update.CallbackQuery.ID, responseText),
+		)
+		if err != nil {
+			tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
+		} else {
+			tg.logger.InfoWith("button response sent").String("to", update.CallbackQuery.From.String()).Write()
+		}
+	}
+
+	// process a new message from group
+	if update.Message != nil {
+		tg.processMessage(update)
+	}
+
+}
+
 // Serve forever to process all incoming messages
 func (tg *Telegram) Serve() error {
 	tg.logger.Info("serve")
@@ -169,27 +190,7 @@ func (tg *Telegram) Serve() error {
 
 	for update := range updates {
 		tg.logger.Debug("new update")
-
-		// spawn goroutine for a new request
-		go func(update tgbotapi.Update) {
-			// process pressed button
-			if update.CallbackQuery != nil {
-				responseText := tg.processButton(update)
-				_, err = tg.bot.AnswerCallbackQuery(
-					tgbotapi.NewCallback(update.CallbackQuery.ID, responseText),
-				)
-				if err != nil {
-					tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
-				} else {
-					tg.logger.InfoWith("button response sent").String("to", update.CallbackQuery.From.String()).Write()
-				}
-			}
-
-			// process a new message in group
-			if update.Message != nil {
-				tg.processMessage(update)
-			}
-		}(update)
+		go tg.processUpdate(update)
 	}
 	return nil
 }

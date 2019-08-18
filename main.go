@@ -24,5 +24,9 @@ func main() {
 		logger.FatalWith("cannot create Telegram connection").Err("error", err).Write()
 		return
 	}
-	tg.Serve()
+	err = tg.Serve()
+	if err != nil {
+		logger.FatalWith("cannot connect to telegram").Err("error", err).Write()
+		return
+	}
 }
