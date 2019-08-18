@@ -2,6 +2,7 @@ package likeforce
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/go-redis/redis"
 )
@@ -34,4 +35,29 @@ func (storage *Posts) Has(chat int64, post int) (bool, error) {
 		return false, nil
 	}
 	return storage.client.SIsMember(key, post).Result()
+}
+
+// List returns list of registered posts IDs
+func (storage *Posts) List(chat int64) ([]int, error) {
+	key := makeKeyChat(chat)
+	result, err := storage.client.Exists(key).Result()
+	if err != nil {
+		return nil, err
+	}
+	if result == 0 {
+		return nil, nil
+	}
+	idsRaw, err := storage.client.SMembers(key).Result()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int, len(idsRaw))
+	for _, idRaw := range idsRaw {
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }

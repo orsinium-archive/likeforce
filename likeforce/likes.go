@@ -65,5 +65,13 @@ func (storage *Likes) Has(chat int64, post, user int) (bool, error) {
 
 // Count returns count of likes for a given post
 func (storage *Likes) Count(chat int64, post int) (int, error) {
-	return storage.client.Get(makeKeyPost(chat, post)).Int()
+	key := makeKeyPost(chat, post)
+	result, err := storage.client.Exists(key).Result()
+	if err != nil {
+		return 0, err
+	}
+	if result == 0 {
+		return 0, nil
+	}
+	return storage.client.Get(key).Int()
 }
