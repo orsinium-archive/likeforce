@@ -170,23 +170,26 @@ func (tg *Telegram) Serve() error {
 	for update := range updates {
 		tg.logger.Debug("new update")
 
-		// process pressed button
-		if update.CallbackQuery != nil {
-			responseText := tg.processButton(update)
-			_, err = tg.bot.AnswerCallbackQuery(
-				tgbotapi.NewCallback(update.CallbackQuery.ID, responseText),
-			)
-			if err != nil {
-				tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
-			} else {
-				tg.logger.InfoWith("button response sent").String("to", update.CallbackQuery.From.String()).Write()
+		// spawn goroutine for a new request
+		go func(update tgbotapi.Update) {
+			// process pressed button
+			if update.CallbackQuery != nil {
+				responseText := tg.processButton(update)
+				_, err = tg.bot.AnswerCallbackQuery(
+					tgbotapi.NewCallback(update.CallbackQuery.ID, responseText),
+				)
+				if err != nil {
+					tg.logger.ErrorWith("cannot send callback answer").Err("error", err).Write()
+				} else {
+					tg.logger.InfoWith("button response sent").String("to", update.CallbackQuery.From.String()).Write()
+				}
 			}
-		}
 
-		// process a new message in group
-		if update.Message != nil {
-			tg.processMessage(update)
-		}
+			// process a new message in group
+			if update.Message != nil {
+				tg.processMessage(update)
+			}
+		}(update)
 	}
 	return nil
 }
