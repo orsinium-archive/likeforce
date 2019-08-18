@@ -87,7 +87,7 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 		return tg.messages.Error
 	}
 
-	// dislike post if laready liked, like otherwise
+	// dislike post if already liked, like otherwise
 	liked, err := tg.storage.Likes.Has(chatID, postID, userID)
 	if err != nil {
 		tg.logger.ErrorWith("cannot check like existence").Err("error", err).Write()
@@ -124,6 +124,10 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 		return tg.messages.Error
 	}
 	likesCount, err := tg.storage.Likes.Count(chatID, postID)
+	if err != nil {
+		tg.logger.ErrorWith("cannot get likes count").Err("error", err).Write()
+		return tg.messages.Error
+	}
 	_, err = tg.bot.Send(
 		tgbotapi.NewEditMessageReplyMarkup(chatID, buttonID, tg.makeButton(chatID, buttonID, likesCount)),
 	)
