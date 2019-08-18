@@ -127,7 +127,7 @@ func GetPostTitle(chatName string, postID int) (string, error) {
 	if err != nil {
 		return "", errorx.Decorate(err, "cannot parse HTML")
 	}
-	article := doc.Find(".tgme_widget_message_text")
+	article := doc.Find(".js-message_text")
 	html, err := article.Html()
 	if err != nil {
 		return "", errorx.Decorate(err, "cannot extract HTML element")

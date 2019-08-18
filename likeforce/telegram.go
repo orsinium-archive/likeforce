@@ -46,6 +46,7 @@ func (tg *Telegram) processMessage(update tgbotapi.Update) {
 
 	msg := tgbotapi.NewMessage(chat.ID, stat)
 	msg.ReplyToMessageID = post.ID
+	msg.DisableNotification = true
 	msg.ReplyMarkup = tg.makeButton(chat.ID, post.ID, 0)
 	_, err = tg.bot.Send(msg)
 	if err != nil {
@@ -222,7 +223,7 @@ func (tg *Telegram) processUpdate(update tgbotapi.Update) {
 					tgbotapi.NewDeleteMessage(update.Message.Chat.ID, update.Message.MessageID),
 				)
 			}
-		} else {
+		} else if update.Message.Text != "" {
 			// process a new post in the group
 			tg.processMessage(update)
 		}
