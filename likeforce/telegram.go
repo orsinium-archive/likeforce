@@ -14,6 +14,7 @@ type Telegram struct {
 	storage  storage.Storage
 	bot      *tgbotapi.BotAPI
 	timeout  int
+	admin    string
 	messages MessagesConfig
 	logger   *onelog.Logger
 }
@@ -204,7 +205,7 @@ func (tg *Telegram) processUpdate(update tgbotapi.Update) {
 	}
 
 	if update.Message != nil && update.Message.Chat.Type != "private" {
-		if update.Message.Text == "/digest" {
+		if update.Message.Text == "/digest" && update.Message.From.UserName == tg.admin {
 			// process the digest request
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, tg.processDigest(update))
 			msg.ParseMode = "Markdown"
@@ -253,6 +254,7 @@ func NewTelegram(config Config, storage storage.Storage, logger *onelog.Logger) 
 		storage:  storage,
 		bot:      bot,
 		timeout:  config.Telegram.Timeout,
+		admin:    config.Telegram.Admin,
 		messages: config.Messages,
 		logger:   logger,
 	}

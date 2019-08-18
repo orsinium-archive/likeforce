@@ -10,6 +10,7 @@ type TelegramConfig struct {
 	Token   string
 	Debug   bool
 	Timeout int
+	Admin   string
 }
 
 // MessagesConfig is a container for bot messages customization
