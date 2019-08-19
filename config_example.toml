@@ -6,8 +6,8 @@ token = "..."
 addr = "localhost:6379"
 
 [messages]
-like = ["❤", "🧡", "💛", "💚", "💙", "💜", "🖤"]
+like = ["💔", "❤", "🧡", "💛", "💚", "💙", "💜", "🖤", "🔥"]
 liked = "you ❤️ it!"
 disliked = "you got your 💔 back"
+self = "hey, stop liking yourself"
 error = "Whoops... Something went wrong."
-
