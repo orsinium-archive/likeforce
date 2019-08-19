@@ -35,7 +35,7 @@ func MakeDigestUsers(chat *storage.Chat) (string, error) {
 	for i, rawUser := range rawUsers {
 		rating, err := rawUser.Rating().Get()
 		if err != nil {
-			return "", errorx.Decorate(err, "cannot get user rating", rawUser.ID)
+			return "", errorx.Decorate(err, "cannot get user rating (user %d)", rawUser.ID)
 		}
 		users[i] = userInfo{id: rawUser.ID, rating: rating}
 	}
@@ -53,7 +53,7 @@ func MakeDigestUsers(chat *storage.Chat) (string, error) {
 		}
 		user.name, err = chat.User(user.id).Name()
 		if err != nil {
-			return "", errorx.Decorate(err, "cannot get user name", user.id)
+			return "", errorx.Decorate(err, "cannot get user name (user %d)", user.id)
 		}
 		digest += fmt.Sprintf("\n%d. [%s](tg://user?id=%d): (%s)", i+1, user.name, user.id, ByteCount(user.rating))
 	}
@@ -89,7 +89,7 @@ func MakeDigestPosts(chat *storage.Chat, chatName string) (string, error) {
 		}
 		post.title, err = GetPostTitle(chatName, post.id)
 		if err != nil {
-			return "", errorx.Decorate(err, "cannot get post title", chatName, post.id)
+			return "", errorx.Decorate(err, "cannot get post title (chat %s, post %d)", chatName, post.id)
 		}
 		digest += fmt.Sprintf(
 			"\n%d. [%s](https://t.me/%s/%d) (%s)",
@@ -119,7 +119,7 @@ func GetPostTitle(chatName string, postID int) (string, error) {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return "", errorx.Decorate(err, "cannot get page content", res.StatusCode, res.Status)
+		return "", errorx.Decorate(err, "cannot get page content (%d %s)", res.StatusCode, res.Status)
 	}
 
 	// Load the HTML document

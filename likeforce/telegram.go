@@ -106,6 +106,11 @@ func (tg *Telegram) processButton(update tgbotapi.Update) string {
 	}
 	rating := chat.User(authorID).Rating()
 
+	// forbid self-like
+	if authorID == user.ID {
+		return tg.messages.Self
+	}
+
 	// dislike post if already liked, like otherwise
 	liked, err := like.Exists(user.ID)
 	if err != nil {
@@ -176,10 +181,14 @@ func (tg *Telegram) makeButton(chatID int64, postID int, likesCount int) tgbotap
 }
 
 func getButtonText(likesCount int, messages []string) string {
-	if len(messages) == 1 {
+	if len(messages) == 1 || likesCount == 0 {
 		return messages[0]
 	}
-	return messages[likesCount/10%len(messages)]
+	index := likesCount/10 + 1
+	if index >= len(messages) {
+		return messages[len(messages)-1]
+	}
+	return messages[index]
 }
 
 func (tg *Telegram) processDigest(update tgbotapi.Update) string {
@@ -214,7 +223,7 @@ func (tg *Telegram) processUpdate(update tgbotapi.Update) {
 	if update.Message != nil && update.Message.Chat.Type != "private" {
 		if update.Message.Text == "/digest" {
 			if update.Message.From.UserName == tg.admin {
-				// process the digest request
+				// process the digest request from admin
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, tg.processDigest(update))
 				msg.ParseMode = "Markdown"
 				_, err := tg.bot.Send(msg)
@@ -223,12 +232,12 @@ func (tg *Telegram) processUpdate(update tgbotapi.Update) {
 					return
 				}
 				tg.logger.InfoWith("message sent").String("to", update.Message.From.String()).Write()
-			} else {
-				// remove "/digest" messages from non-admin
-				tg.bot.DeleteMessage(
-					tgbotapi.NewDeleteMessage(update.Message.Chat.ID, update.Message.MessageID),
-				)
 			}
+			// remove "/digest" message (from admin or non-admin, doesn't matter)
+			tg.bot.DeleteMessage(
+				tgbotapi.NewDeleteMessage(update.Message.Chat.ID, update.Message.MessageID),
+			)
+
 		} else if update.Message.Text != "" {
 			// process a new post in the group
 			tg.processMessage(update)

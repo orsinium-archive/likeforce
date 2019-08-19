@@ -18,6 +18,7 @@ type MessagesConfig struct {
 	Like     []string
 	Liked    string
 	Disliked string
+	Self     string
 	Error    string
 }
 
