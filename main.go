@@ -29,6 +29,10 @@ func main() {
 		logger.FatalWith("cannot create Telegram connection").Err("error", err).Write()
 		return
 	}
+	tg.RegisterHandler(&likeforce.ButtonHandler{Telegram: tg})
+	tg.RegisterHandler(&likeforce.DigestHandler{Telegram: tg})
+	tg.RegisterHandler(&likeforce.LikeHandler{Telegram: tg})
+	tg.RegisterHandler(&likeforce.PostHandler{Telegram: tg})
 	err = tg.Serve()
 	if err != nil {
 		logger.FatalWith("cannot connect to telegram").Err("error", err).Write()
