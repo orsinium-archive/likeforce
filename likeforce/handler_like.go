@@ -53,7 +53,7 @@ func (tg *LikeHandler) handleMessageFromAdmin(update tgbotapi.Update) {
 		return
 	}
 
-	err = user.SetName(update.Message.From.String())
+	err = user.SetName(update.Message.ReplyToMessage.From.String())
 	if err != nil {
 		tg.logger.ErrorWith("cannot save username").Err("error", err).Write()
 		return
